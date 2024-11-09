@@ -116,6 +116,15 @@ endif
 AB_OTA_POSTINSTALL_CONFIG += \
     FILESYSTEM_TYPE_system=$(PARTITION_TYPE)
 
+# Explicitly enable UFFD GC
+# Kernel 5.4 and above support userfaultfd, but only kernel 5.7 and above
+# support MREMAP_DONTUNMAP. Both features are required for UFFD GC
+ifneq ($(call is-kernel-greater-than-or-equal-to,5.10),true)
+OVERRIDE_ENABLE_UFFD_GC := false
+else
+OVERRIDE_ENABLE_UFFD_GC := true
+endif
+
 # Media codecs configuration
 PRODUCT_COPY_FILES += \
     frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_audio.xml \
