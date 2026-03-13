@@ -169,3 +169,8 @@ $(call inherit-product, device/motorola/common/common-packages.mk)
 $(call inherit-product, device/motorola/common/common-perm.mk)
 $(call inherit-product, device/motorola/common/common-prop.mk)
 $(call inherit-product, device/motorola/common/common-treble.mk)
+
+# pKVM
+ifeq ($(PRODUCT_BUILD_PVMFW_IMAGE),true)
+$(call inherit-product, packages/modules/Virtualization/apex/product_packages.mk)
+endif
