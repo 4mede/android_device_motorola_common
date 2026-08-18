@@ -20,7 +20,9 @@ ifeq ($(AB_OTA_UPDATER),true)
 endif
 
 # Audio
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 $(call inherit-product-if-exists, vendor/qcom/opensource/audio/$(qcom_platform)/configs/$(TARGET_BOARD_PLATFORM)/$(TARGET_BOARD_PLATFORM).mk)
+endif
 
 # Bluetooth
 PRODUCT_PACKAGES += \
@@ -70,8 +72,11 @@ TARGET_COMMON_QTI_COMPONENTS := $(filter-out $(TARGET_UNWANTED_QTI_COMPONENTS),$
 $(call soong_config_set,rmnetctl,old_rmnet_data,true)
 
 # Display
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 $(call inherit-product, vendor/qcom/opensource/display/$(qcom_platform)/config/display-product.mk)
-$(call inherit-product, vendor/qcom/opensource/display-commonsys-intf/config/display-interfaces-product.mk)
+endif
+
+$(call inherit-product, vendor/qcom/opensource/display-commonsys-intf/display/config/display-interfaces-product.mk)
 
 # FM
 ifeq ($(call device-has-characteristic,fm),true)
@@ -90,6 +95,7 @@ PRODUCT_PACKAGES += \
 
 # GPS
 TARGET_USES_$(call upper,$(qcom_platform))_GPS := true
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 ifeq ($(call is-kernel-less-than-or-equal-to,5.4),true)
   PRODUCT_SOONG_NAMESPACES += vendor/qcom/opensource/gps/legacy
   $(call inherit-product-if-exists, vendor/qcom/opensource/gps/legacy/gps_vendor_product.mk)
@@ -97,6 +103,7 @@ ifeq ($(call is-kernel-less-than-or-equal-to,5.4),true)
 else
   PRODUCT_SOONG_NAMESPACES += vendor/qcom/opensource/gps/$(qcom_platform)
   $(call inherit-product-if-exists, vendor/qcom/opensource/gps/$(qcom_platform)/gps_vendor_product.mk)
+endif
 endif
 
 # Kernel
@@ -112,7 +119,10 @@ PRODUCT_PACKAGES += \
     vendor.qti.hardware.display.mapper@2.0.vendor
 
 # Media
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 $(call inherit-product-if-exists, vendor/qcom/opensource/media/$(qcom_platform)/product.mk)
+endif
+
 TARGET_DISABLE_C2_CODEC := false
 
 # Power
@@ -153,11 +163,15 @@ PRODUCT_PACKAGES += \
     qti_telephony_utils.xml
 
 # Soong
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 PRODUCT_SOONG_NAMESPACES += \
     vendor/qcom/opensource/audio/$(qcom_platform) \
+    vendor/qcom/opensource/display/$(qcom_platform) \
+    
+endif
+PRODUCT_SOONG_NAMESPACES += \
     vendor/qcom/opensource/data-ipa-cfg-mgr-legacy-um \
     vendor/qcom/opensource/dataservices \
-    vendor/qcom/opensource/display/$(qcom_platform) \
 
 ifeq ($(call is-kernel-less-than-or-equal-to,5.4),true)
   PRODUCT_SOONG_NAMESPACES += \
