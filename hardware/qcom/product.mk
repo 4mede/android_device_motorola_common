@@ -76,7 +76,7 @@ ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 $(call inherit-product, vendor/qcom/opensource/display/$(qcom_platform)/config/display-product.mk)
 endif
 
-$(call inherit-product, vendor/qcom/opensource/display-commonsys-intf/display/config/display-interfaces-product.mk)
+$(call inherit-product, vendor/qcom/opensource/commonsys-intf/display/config/display-interfaces-product.mk)
 
 # FM
 ifeq ($(call device-has-characteristic,fm),true)
@@ -175,7 +175,7 @@ PRODUCT_SOONG_NAMESPACES += \
 
 ifeq ($(call is-kernel-less-than-or-equal-to,5.4),true)
   PRODUCT_SOONG_NAMESPACES += \
-      vendor/qcom/opensource/display-commonsys-intf
+      vendor/qcom/opensource/commonsys-intf/display
 endif
 
 # Telephony: IMS framework
