@@ -24,7 +24,7 @@ touch_path=
 panel_path=/sys/devices/virtual/graphics/fb0
 oem_panel_script=/vendor/bin/init.oem.panel.sh
 dlkm_path=/vendor/lib/modules
-device_property=ro.vendor.hw.device
+device_property=ro.boot.device
 hwrev_property=ro.vendor.hw.revision
 firmware_path=/vendor/firmware
 param_path=/data/vendor/param/touch
@@ -206,6 +206,9 @@ setup_permissions()
 						[ -f $touch_path/size ] && chown root:vendor_tcmd $touch_path/size
 						[ -f $touch_path/address ] && chown root:vendor_tcmd $touch_path/address
 						[ -f $touch_path/write ] && chown root:vendor_tcmd $touch_path/write
+						;;
+			   pixart)	key_path="/sys/bus/i2c/devices/1-0033"
+						key_files="selftest selftest_bin"
 						;;
 			synaptics)	key_path=$touch_path
 						key_files=$(prepend f54 `ls $touch_path/f54/ 2>/dev/null`)
@@ -494,10 +497,10 @@ run_firmware_upgrade()
 		[ "$str_cfg_id_latest" != "$str_cfg_id_new" ] && error_msg 7 && return 1
 		# indicate that update has been completed
 		setprop $touch_update_prop "completed"
-		notice "property [$touch_update_prop] set to [`getprop "$touch_update_prop"`]"
+		notice "property [$touch_update_prop] set to [`getprop $touch_update_prop`]"
 		if [ "$touch_vendor" == "synaptics" ]; then
 			notice "forcing F54 registers update"
-			echo 1 > "$touch_path"/f54/force_update
+			echo 1 > $touch_path/f54/force_update
 			notice "need to reload F54"
 			reload_modules "synaptics_dsx_test_reporting"
 		fi
@@ -515,9 +518,9 @@ do_sec_calibration()
 	echo run_force_calibration > /sys/devices/virtual/sec/tsp/cmd
 	rc=$(cat /sys/devices/virtual/sec/tsp/cmd_result)
 	[ "$rc" != "run_force_calibration:OK" ] && return 1
-	info=$(cat $touch_class_path/"$touch_instance"/buildid)
-	if [ -f $touch_class_path/"$touch_instance"/mutual_range ]; then
-		info=$info";$(cat $touch_class_path/"$touch_instance"/mutual_range)"
+	info=$(cat $touch_class_path/$touch_instance/buildid)
+	if [ -f $touch_class_path/$touch_instance/mutual_range ]; then
+		info=$info";$(cat $touch_class_path/$touch_instance/mutual_range)"
 	else
 		notice "mutual range unavailable"
 	fi
@@ -555,37 +558,37 @@ do_calibration()
 			 ;;
 	esac
 	notice "Touch calibration result $rc"
-	[ $rc == 0 ] && setprop $touch_calibration_done_version "$cal_info"
+	[ $rc == 0 ] && setprop $touch_calibration_done_version $cal_info
 }
 
 process_touch_instance()
 {
-	touch_vendor=$(cat $touch_class_path/"$touch_instance"/vendor)
+	touch_vendor=$(cat $touch_class_path/$touch_instance/vendor)
 	debug "touch vendor [$touch_vendor]"
-	touch_path=/sys$(cat $touch_class_path/"$touch_instance"/path)
+	touch_path=/sys$(cat $touch_class_path/$touch_instance/path)
 	debug "sysfs touch path: $touch_path"
 	touch_status_prop=vendor.hw.touch.$touch_instance.status
 	touch_update_prop=vendor.hw.touch.$touch_instance.update
-	if [ ! -f "$touch_path"/doreflash ] ||
-		[ ! -f "$touch_path"/poweron ] ||
-		[ ! -f "$touch_path"/flashprog ] ||
-		[ ! -f "$touch_path"/productinfo ] ||
-		[ ! -f "$touch_path"/buildid ]; then
+	if [ ! -f $touch_path/doreflash ] ||
+		[ ! -f $touch_path/poweron ] ||
+		[ ! -f $touch_path/flashprog ] ||
+		[ ! -f $touch_path/productinfo ] ||
+		[ ! -f $touch_path/buildid ]; then
 		error_msg 5
 		return
 	fi
 	if [ $dump_statistics ]; then
 		dump_statistics
 	fi
-	if [ -f "$touch_path"/flash_mode ]; then
+	if [ -f $touch_path/flash_mode ]; then
 		notice "Support parameter APK for FW upgrade"
 		let search_in_param=1
 	fi
 
 	notice "Checking touch ID [$touch_instance] FW upgrade"
-	touch_vendor=$(cat $touch_class_path/"$touch_instance"/vendor)
+	touch_vendor=$(cat $touch_class_path/$touch_instance/vendor)
 	debug "touch vendor [$touch_vendor]"
-	touch_path=/sys$(cat $touch_class_path/"$touch_instance"/path)
+	touch_path=/sys$(cat $touch_class_path/$touch_instance/path)
 	debug "sysfs touch path: $touch_path"
 	query_touch_info
 	query_panel_info
@@ -594,14 +597,93 @@ process_touch_instance()
 	if [ "$?" == "0" ]; then
 		do_calibration
 		notice "Touch firmware is up to date"
-		setprop "$touch_status_prop" "ready"
-		notice "property [$touch_status_prop] set to [$(getprop "$touch_status_prop")]"
+		setprop $touch_status_prop "ready"
+		notice "property [$touch_status_prop] set to [`getprop $touch_status_prop`]"
 		notice "Handling touch ID [$touch_instance] permissions"
 	fi
 	read_touch_property buildid
-	setprop $touch_firmware_property "${property}"
+	setprop $touch_firmware_property ${property}
 	notice "Touch firmware property is $touch_firmware_property"
 	setup_permissions
+}
+
+
+set_ro_hw_properties_exponent_panel()
+{
+	local panelname_path=/sys/class/drm/card0-DSI-1/panelName
+	local panelname_cli_path=/sys/class/drm/card0-DSI-2/panelName
+	local bl_exponent_path=/sys/class/drm/card0-DSI-1/panelBLExponent
+	local bl_exponent_prop=ro.vendor.hw.curve
+
+	local prim_declare_path=/sys/class/drm/card0-DSI-1/panelDeclare
+	local cli_declare_path=/sys/class/drm/card0-DSI-2/panelDeclare
+	local prim_declare_prop=ro.vendor.hw.primary_declare
+	local cli_declare_prop=ro.vendor.hw.cli_declare
+
+	local panelname
+	local wait_cnt=0
+	lid_property=ro.vendor.mot.hw.lid
+	lid=1
+
+	has_lid=$(getprop $lid_property 2> /dev/null)
+
+	local prim_enable_brightnesszone_path=/sys/class/drm/card0-DSI-1/panelEnableSfBrightZone
+	local prim_enable_brightnesszone_prop=ro.vendor.hw.prim_enable_sf_brightnesszone
+
+	local cli_enable_brightnesszone_path=/sys/class/drm/card0-DSI-2/panelEnableSfBrightZone
+	local cli_enable_brightnesszone_prop=ro.vendor.hw.cli_enable_sf_brightnesszone
+
+	while [ "$wait_cnt" -lt 15 ]; do
+		if [ -e $panelname_path ]; then
+			panelname=$(cat $panelname_path)
+			panelBLExponent=$(cat $bl_exponent_path)
+			setprop $bl_exponent_prop "$panelBLExponent"
+			notice "setprop $bl_exponent_prop as $panelBLExponent for panel [$panelname]"
+			if [ -e $prim_declare_path ]; then
+			    prim_declare_str=$(cat $prim_declare_path)
+			    setprop $prim_declare_prop "$prim_declare_str"
+			    notice "setprop $prim_declare_prop as $prim_declare_str for panel [$panelname]"
+			fi
+			if [ -e $prim_enable_brightnesszone_path ]; then
+			    prim_enable_brightnesszone_str=$(cat $prim_enable_brightnesszone_path)
+				if [ $prim_enable_brightnesszone_str -eq 1 ]; then
+			    setprop $prim_enable_brightnesszone_prop true
+			    notice "setprop $prim_enable_brightnesszone_prop as true"
+				fi
+				if [ $prim_enable_brightnesszone_str -eq 0 ]; then
+			    setprop $prim_enable_brightnesszone_prop false
+			    notice "setprop $prim_enable_brightnesszone_prop as false"
+				fi
+			fi
+
+			if [ -e $cli_enable_brightnesszone_path ]; then
+			    cli_enable_brightnesszone_str=$(cat $cli_enable_brightnesszone_path)
+				if [ $cli_enable_brightnesszone_str -eq 1 ]; then
+			    setprop $cli_enable_brightnesszone_prop true
+			    notice "setprop $cli_enable_brightnesszone_prop as true"
+				fi
+				if [ $cli_enable_brightnesszone_str -eq 0 ]; then
+			    setprop $cli_enable_brightnesszone_prop false
+			    notice "setprop $cli_enable_brightnesszone_prop as false"
+				fi
+			fi
+			if [ $has_lid -eq $lid ]
+			then
+			    if [ -e $panelname_cli_path -a -e $cli_declare_path ] ; then
+			        panelname=$(cat $panelname_cli_path)
+			        cli_declare_str=$(cat $cli_declare_path)
+			        setprop $cli_declare_prop "$cli_declare_str"
+			        notice "setprop $cli_declare_prop as $cli_declare_str for panel [$panelname]"
+			        break;
+			    fi
+			else
+			    break;
+			fi
+		fi
+		notice "waiting for panelname, wait_cnt is $wait_cnt, has_lid is $has_lid"
+		sleep 1;
+		wait_cnt=$((wait_cnt+1))
+	done
 }
 
 # Main starts here
@@ -617,13 +699,22 @@ debug "product id: $product_id"
 hwrev_id=$(getprop $hwrev_property 2> /dev/null)
 [ -z "$hwrev_id" ] && notice "hw revision undefined"
 debug "hw revision: $hwrev_id"
-cd $firmware_path || exit
+cd $firmware_path
 # Run asynchronously for each instance
 for touch_instance in $(ls $touch_class_path); do
 	process_touch_instance &
 done
 
+if [ -f /sys/bus/i2c/devices/1-0033/vendor ]; then
+	touch_vendor=$(cat /sys/bus/i2c/devices/1-0033/vendor)
+	setup_permissions
+fi
+
 # check if need to reload modules
+
+# set exponent backlight property
+set_ro_hw_properties_exponent_panel
+
 wait
 debug "all background processes completed"
 

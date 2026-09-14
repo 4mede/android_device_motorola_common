@@ -27,11 +27,15 @@ function set_permissions() {
     then
         chmod 0660 /dev/focaltech_fp
         chown system:system /dev/focaltech_fp
-    else
+    elif [ "$fps_id" == "egis" ]
         chmod 0660 /dev/esfp0
         chown system:system /dev/esfp0
         chmod 0660 /sys/devices/platform/egis_input/navigation_event
         chown system:system /sys/devices/platform/egis_input/navigation_event
+    else
+        chmod 0660 /dev/jiiov_fp
+        chown system root /dev/jiiov_fp
+        chown system system /dev/jiiov_fp
     fi
 }
 
@@ -81,7 +85,8 @@ function start_fpsensor() {
         sleep 0.4
         start vendor.focal_hal
         sleep 1
-    else
+    elif [ "$fps_id" == "egis" ]
+    then
         load_module ets_fps_mmi.ko
         load_module ets_fps.ko
         load_module rbs_fps_mmi.ko
@@ -91,9 +96,17 @@ function start_fpsensor() {
         sleep 0.4
         start vendor.ets_hal
         sleep 1
+    else
+        load_module anc_fps_mmi.ko
+        sleep 0.6
+        set_permissions
+        sleep 0.4
+        start vendor.jv_hal
+        sleep 1
     fi
 }
 
+rmmod anc_fps_mmi
 rmmod ets_fps_mmi
 rmmod ets_fps
 rmmod rbs_fps_mmi
