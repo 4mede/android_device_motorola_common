@@ -60,7 +60,6 @@ TARGET_COMMON_QTI_COMPONENTS := \
     gps \
     keymaster \
     media \
-    neuralnetworks \
     overlay \
     qseecomd \
     vibrator \
