@@ -111,7 +111,7 @@ endif
 
 # HFR
 ifeq ($(call device-has-characteristic,hfr),true)
-  PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+  PRODUCT_ODM_PROPERTIES += \
       ro.surface_flinger.set_idle_timer_ms=250 \
       ro.surface_flinger.set_touch_timer_ms=1000 \
       ro.surface_flinger.set_display_power_timer_ms=1000 \
