@@ -75,7 +75,6 @@ BOARD_USES_METADATA_PARTITION := true
 TARGET_FS_CONFIG_GEN += $(COMMON_PATH)/mot_aids.fs
 
 ## Utilities
-TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
 # Kernel
@@ -140,7 +139,6 @@ ifeq ($(call has-partition,vendor_boot),true)
   ifneq ($(call has-partition,recovery),true)
     BOARD_MOVE_RECOVERY_RESOURCES_TO_VENDOR_BOOT := true
   endif
-  BOARD_MOVE_GSI_AVB_KEYS_TO_VENDOR_BOOT := true
 endif
 
 # RIL
