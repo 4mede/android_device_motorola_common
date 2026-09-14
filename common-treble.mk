@@ -77,9 +77,11 @@ ifeq ($(PRODUCT_USES_MTK_HARDWARE),true)
       android.hardware.health@2.1-service
 endif
 
+ifeq ($(ROM_INCLUDES_QCOM_COMMON),false)
 # Lights HAL
 PRODUCT_PACKAGES += \
     android.hardware.lights-service.moto
+endif
 
 # Media
 PRODUCT_PACKAGES += \
