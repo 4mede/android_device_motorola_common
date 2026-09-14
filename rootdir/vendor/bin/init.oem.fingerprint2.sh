@@ -28,6 +28,7 @@ function set_permissions() {
         chmod 0660 /dev/focaltech_fp
         chown system:system /dev/focaltech_fp
     elif [ "$fps_id" == "egis" ]
+    then
         chmod 0660 /dev/esfp0
         chown system:system /dev/esfp0
         chmod 0660 /sys/devices/platform/egis_input/navigation_event
