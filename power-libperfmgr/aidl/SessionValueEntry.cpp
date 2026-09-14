@@ -37,6 +37,19 @@ std::ostream &SessionValueEntry::dump(std::ostream &os) const {
         os << ", votes nullptr";
     }
     os << ", " << isActive;
+    os << ", " << votes->allTimedOut(timeNow);
+    auto totalFrames = hBoostModeDist.lightModeFrames + hBoostModeDist.moderateModeFrames +
+                       hBoostModeDist.severeModeFrames;
+    os << ", HBoost:"
+       << (totalFrames <= 0 ? 0 : (hBoostModeDist.lightModeFrames * 10000 / totalFrames / 100.0))
+       << "%-"
+       << (totalFrames <= 0 ? 0 : (hBoostModeDist.moderateModeFrames * 10000 / totalFrames / 100.0))
+       << "%-"
+       << (totalFrames <= 0 ? 0 : (hBoostModeDist.severeModeFrames * 10000 / totalFrames / 100.0))
+       << "%-" << totalFrames << ", ";
+    os << sessFrameBuckets.toString() << ", ";
+    os << "Ramup boost active: " << rampupBoostActive << ", ";
+
     return os;
 }
 

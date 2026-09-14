@@ -20,6 +20,7 @@
 #include <aidl/AppDescriptorTrace.h>
 #include <aidl/AppHintDesc.h>
 #include <aidl/PhysicalQuantityTypes.h>
+#include <aidl/SessionMetrics.h>
 #include <gmock/gmock.h>
 
 namespace aidl::google::hardware::power::mock::pixel {
@@ -36,14 +37,13 @@ class MockPowerSessionManager {
                 (const std::string &idString,
                  const std::shared_ptr<impl::pixel::AppHintDesc> &sessionDescriptor,
                  const std::shared_ptr<impl::pixel::AppDescriptorTrace> &sessionTrace,
-                 const std::vector<int32_t> &threadIds),
+                 const bool enableMetricCollection, const std::vector<int32_t> &threadIds),
                 ());
     MOCK_METHOD(void, removePowerSession, (int64_t sessionId), ());
     MOCK_METHOD(void, setThreadsFromPowerSession,
                 (int64_t sessionId, const std::vector<int32_t> &threadIds), ());
     MOCK_METHOD(void, pause, (int64_t sessionId), ());
     MOCK_METHOD(void, resume, (int64_t sessionId), ());
-    MOCK_METHOD(void, updateUniversalBoostMode, (), ());
     MOCK_METHOD(void, dumpToFd, (int fd), ());
     MOCK_METHOD(void, updateTargetWorkDuration,
                 (int64_t sessionId, impl::pixel::AdpfVoteType voteId,
@@ -68,6 +68,19 @@ class MockPowerSessionManager {
     MOCK_METHOD(void, unregisterSession, (int64_t sessionId), ());
     MOCK_METHOD(void, clear, (), ());
     MOCK_METHOD(std::shared_ptr<void>, getSession, (int64_t sessionId), ());
+    MOCK_METHOD(void, updateHboostStatistics,
+                (int64_t sessionId, impl::pixel::SessionJankyLevel jankyLevel, int32_t numOfFrames),
+                ());
+    MOCK_METHOD(bool, getGameModeEnableState, (), ());
+    MOCK_METHOD(bool, hasValidTaskRampupMultNode, (), ());
+    MOCK_METHOD(void, updateFrameMetrics,
+                (int64_t sessionId, const impl::pixel::FrameTimingMetrics &lastReportedFrames), ());
+    MOCK_METHOD(void, updateRampupBoostMode,
+                (int64_t sessionId, impl::pixel::SessionJankyLevel jankyLevel,
+                 int32_t defaultRampupVal, int32_t highRampupVal),
+                ());
+    MOCK_METHOD(void, updateCollectedSessionMetrics, (int64_t sessionId), ());
+    MOCK_METHOD(bool, areAllSessionsTimeout, (), ());
 
     static testing::NiceMock<MockPowerSessionManager> *getInstance() {
         static testing::NiceMock<MockPowerSessionManager> instance{};

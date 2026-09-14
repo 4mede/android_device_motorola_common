@@ -17,8 +17,22 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+aconfig_declarations {
+    name: "powerhal_flags-aconfig",
+    container: "vendor",
+    package: "powerhal.flags",
+    exportable: true,
+    srcs: ["flags.aconfig"],
+}
+
+cc_aconfig_library {
+    name: "powerhal_flags-aconfig-cc",
+    aconfig_declarations: "powerhal_flags-aconfig",
+    vendor: true,
+}
+
 cc_library {
-    name: "libdisppower",
+    name: "libdisppower-pixel",
     proprietary: true,
     srcs: [
         "disp-power/DisplayLowPower.cpp",
@@ -32,8 +46,85 @@ cc_library {
         "libperfmgr",
         "libutils",
     ],
+    static_libs: [
+        "powerhal_flags-aconfig-cc",
+        "libaconfig_storage_read_api_cc",
+    ],
     defaults: [
         "moto_common_power_hal_cc_defaults"
+    ],
+}
+
+// Deprecated, do not use
+// Use pixel-power-ext for vendor extension
+cc_library_headers {
+    name: "pixel_power_headers",
+    vendor: true,
+    export_include_dirs: ["hidl"],
+}
+
+cc_test {
+    name: "libadpf_test",
+    defaults: ["android.hardware.power-ndk_static"],
+    proprietary: true,
+    vendor: true,
+    require_root: true,
+    srcs: [
+        "aidl/tests/BackgroundWorkerTest.cpp",
+        "aidl/tests/GpuCapacityCalculationTest.cpp",
+        "aidl/tests/GpuCapacityNodeTest.cpp",
+        "aidl/tests/PhysicalQuantityTypeTest.cpp",
+        "aidl/tests/PowerHintSessionTest.cpp",
+        "aidl/tests/PowerSessionManagerTest.cpp",
+        "aidl/tests/SessionRecordsTest.cpp",
+        "aidl/tests/SessionTaskMapTest.cpp",
+        "aidl/tests/TestHelper.cpp",
+        "aidl/tests/UClampVoterTest.cpp",
+        "aidl/tests/ChannelGroupTest.cpp",
+        "aidl/tests/ChannelManagerTest.cpp",
+        "aidl/BackgroundWorker.cpp",
+        "aidl/ChannelGroup.cpp",
+        "aidl/ChannelManager.cpp",
+        "aidl/GpuCalculationHelpers.cpp",
+        "aidl/GpuCapacityNode.cpp",
+        "aidl/PowerHintSession.cpp",
+        "aidl/PowerSessionManager.cpp",
+        "aidl/SessionMetrics.cpp",
+        "aidl/SessionRecords.cpp",
+        "aidl/SessionChannel.cpp",
+        "aidl/SessionTaskMap.cpp",
+        "aidl/SessionValueEntry.cpp",
+        "aidl/TaskRampupMultNode.cpp",
+        "aidl/UClampVoter.cpp",
+        "aidl/utils/TgidTypeChecker.cpp",
+        "aidl/utils/ThermalStateListener.cpp",
+    ],
+    cpp_std: "gnu++20",
+    static_libs: [
+        "libaconfig_storage_read_api_cc",
+        "libgmock",
+        "libgtest",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.common.fmq-V1-ndk",
+        "powerhal_flags-aconfig-cc",
+    ],
+    shared_libs: [
+        "android.hardware.thermal@2.0",
+        "android.hardware.thermal-V1-ndk",
+        "liblog",
+        "libbase",
+        "libcutils",
+        "libfmq",
+        "libutils",
+        "libperfmgr",
+        "libbinder_ndk",
+        "libprocessgroup",
+        "pixel-power-ext-V1-ndk",
+        "libfmq",
+    ],
+    test_suites: [
+        "device-tests",
+        "device-pixel-tests",
     ],
 }
 
@@ -48,6 +139,8 @@ cc_binary {
         "-Wthread-safety",
     ],
     shared_libs: [
+        "android.hardware.thermal@2.0",
+        "android.hardware.thermal-V1-ndk",
         "libbase",
         "libcutils",
         "liblog",
@@ -57,15 +150,22 @@ cc_binary {
         "libperfmgr",
         "libprocessgroup",
         "pixel-power-ext-V1-ndk",
+        "android.frameworks.stats-V2-ndk",
         "android.hardware.common.fmq-V1-ndk",
         "libfmq",
     ],
     static_libs: [
+        "libaconfig_storage_read_api_cc",
         "libgmock",
         "libgtest",
+        "libpixelstats",
+        "powerhal_flags-aconfig-cc",
     ],
     srcs: [
         "aidl/BackgroundWorker.cpp",
+        "aidl/ChannelGroup.cpp",
+        "aidl/ChannelManager.cpp",
+        "aidl/MetricUploader.cpp",
         "aidl/GpuCalculationHelpers.cpp",
         "aidl/GpuCapacityNode.cpp",
         "aidl/service.cpp",
@@ -73,12 +173,35 @@ cc_binary {
         "aidl/PowerExt.cpp",
         "aidl/PowerHintSession.cpp",
         "aidl/PowerSessionManager.cpp",
+        "aidl/SupportManager.cpp",
         "aidl/UClampVoter.cpp",
+        "aidl/SessionMetrics.cpp",
         "aidl/SessionRecords.cpp",
+        "aidl/SessionChannel.cpp",
         "aidl/SessionTaskMap.cpp",
         "aidl/SessionValueEntry.cpp",
+        "aidl/TaskRampupMultNode.cpp",
+        "aidl/utils/ThermalStateListener.cpp",
+        "aidl/utils/TgidTypeChecker.cpp",
     ],
     cpp_std: "gnu++20",
+}
+
+cc_binary {
+    name: "sendhint",
+    defaults: ["android.hardware.power-ndk_shared"],
+    vendor: true,
+    shared_libs: [
+        "libbase",
+        "libcutils",
+        "liblog",
+        "libutils",
+        "libbinder_ndk",
+        "pixel-power-ext-V1-ndk",
+    ],
+    srcs: [
+        "utilities/sendhint.cc",
+    ],
 }
 
 soong_config_module_type {

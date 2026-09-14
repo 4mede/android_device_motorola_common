@@ -26,7 +26,9 @@
 #include "AppHintDesc.h"
 #include "BackgroundWorker.h"
 #include "GpuCapacityNode.h"
+#include "SessionMetrics.h"
 #include "SessionTaskMap.h"
+#include "TaskRampupMultNode.h"
 
 namespace aidl {
 namespace google {
@@ -37,8 +39,6 @@ namespace pixel {
 
 using ::android::Thread;
 
-constexpr char kPowerHalAdpfDisableTopAppBoost[] = "vendor.powerhal.adpf.disable.hint";
-
 template <class HintManagerT = ::android::perfmgr::HintManager>
 class PowerSessionManager : public Immobile {
   public:
@@ -46,13 +46,11 @@ class PowerSessionManager : public Immobile {
 
     // Update the current hint info
     void updateHintMode(const std::string &mode, bool enabled);
-    void updateHintBoost(const std::string &boost, int32_t durationMs);
-    int getDisplayRefreshRate();
     // Add and remove power hint session
     void addPowerSession(const std::string &idString,
                          const std::shared_ptr<AppHintDesc> &sessionDescriptor,
                          const std::shared_ptr<AppDescriptorTrace> &sessionTrace,
-                         const std::vector<int32_t> &threadIds);
+                         const bool enableMetricCollection, const std::vector<int32_t> &threadIds);
     void removePowerSession(int64_t sessionId);
     // Replace current threads in session with threadIds
     void setThreadsFromPowerSession(int64_t sessionId, const std::vector<int32_t> &threadIds);
@@ -60,7 +58,6 @@ class PowerSessionManager : public Immobile {
     void pause(int64_t sessionId);
     void resume(int64_t sessionId);
 
-    void updateUniversalBoostMode();
     void dumpToFd(int fd);
 
     void updateTargetWorkDuration(int64_t sessionId, AdpfVoteType voteId,
@@ -78,6 +75,13 @@ class PowerSessionManager : public Immobile {
 
     void setPreferPowerEfficiency(int64_t sessionId, bool enabled);
 
+    void updateHboostStatistics(int64_t sessionId, SessionJankyLevel jankyLevel,
+                                int32_t numOfFrames);
+    void updateFrameMetrics(int64_t sessionId, const FrameTimingMetrics &lastReportedFrames);
+    bool hasValidTaskRampupMultNode();
+    void updateRampupBoostMode(int64_t sessionId, SessionJankyLevel jankyLevel,
+                               int32_t defaultRampupVal, int32_t highRampupVal);
+
     // Singleton
     static PowerSessionManager *getInstance() {
         static PowerSessionManager instance{};
@@ -91,14 +95,13 @@ class PowerSessionManager : public Immobile {
     // Only for testing
     void clear();
     std::shared_ptr<void> getSession(int64_t sessionId);
+    bool getGameModeEnableState();
+    bool updateCollectedSessionMetrics(int64_t sessionId);
+    bool areAllSessionsTimeout();
 
   private:
-    std::optional<bool> isAnyAppSessionActive();
-    void disableSystemTopAppBoost();
-    void enableSystemTopAppBoost();
+    bool isAnyAppSessionActive();
     const std::string kDisableBoostHintName;
-
-    int mDisplayRefreshRate;
 
     // Rewrite specific
     mutable std::mutex mSessionTaskMapMutex;
@@ -124,22 +127,32 @@ class PowerSessionManager : public Immobile {
     void applyCpuAndGpuVotes(int64_t sessionId, std::chrono::steady_clock::time_point timePoint);
     // Force a session active or in-active, helper for other methods
     void forceSessionActive(int64_t sessionId, bool isActive);
+    std::vector<std::string> getSessionTaskProfiles(int64_t sessionId, bool isSetProfile) const;
+    void voteRampupBoostLocked(int64_t sessionId, bool rampupBoostVote, int32_t defaultRampupVal,
+                               int32_t highRampupVal);
 
     // Singleton
     PowerSessionManager()
-        : kDisableBoostHintName(::android::base::GetProperty(kPowerHalAdpfDisableTopAppBoost,
-                                                             "ADPF_DISABLE_TA_BOOST")),
-          mDisplayRefreshRate(60),
-          mPriorityQueueWorkerPool(new PriorityQueueWorkerPool(1, "adpf_handler")),
+        : mPriorityQueueWorkerPool(new PriorityQueueWorkerPool(1, "adpf_handler")),
           mEventSessionTimeoutWorker([&](auto e) { handleEvent(e); }, mPriorityQueueWorkerPool),
-          mGpuCapacityNode(createGpuCapacityNode()) {}
+          mGpuCapacityNode(createGpuCapacityNode()),
+          mTaskRampupMultNode(TaskRampupMultNode::getInstance()),
+          kMaxNumOfCachedSessionMetrics(HintManagerT::GetInstance()
+                                                ->GetOtherConfigs()
+                                                .maxNumOfCachedSessionMetrics.value_or(100)) {}
     PowerSessionManager(PowerSessionManager const &) = delete;
     PowerSessionManager &operator=(PowerSessionManager const &) = delete;
 
     std::optional<std::unique_ptr<GpuCapacityNode>> const mGpuCapacityNode;
 
     std::mutex mSessionMapMutex;
-    std::map<int, std::weak_ptr<void>> mSessionMap GUARDED_BY(mSessionMapMutex);
+    std::unordered_map<int, std::weak_ptr<void>> mSessionMap GUARDED_BY(mSessionMapMutex);
+
+    std::atomic<bool> mGameModeEnabled{false};
+    std::shared_ptr<TaskRampupMultNode> mTaskRampupMultNode;
+
+    std::vector<SessionMetrics> mCollectedSessionMetrics GUARDED_BY(mSessionTaskMapMutex);
+    const int32_t kMaxNumOfCachedSessionMetrics;
 };
 
 }  // namespace pixel

@@ -27,13 +27,17 @@ namespace power {
 namespace impl {
 namespace pixel {
 
+static constexpr int32_t kTotalFramesForFPSCheck = 3;
+
 SessionRecords::SessionRecords(const int32_t maxNumOfRecords, const double jankCheckTimeFactor)
     : kMaxNumOfRecords(maxNumOfRecords), kJankCheckTimeFactor(jankCheckTimeFactor) {
     mRecords.resize(maxNumOfRecords);
 }
 
 void SessionRecords::addReportedDurations(const std::vector<WorkDuration> &actualDurationsNs,
-                                          int64_t targetDurationNs) {
+                                          int64_t targetDurationNs,
+                                          FrameTimingMetrics &newFrameMetrics,
+                                          bool computeGameMetrics) {
     for (auto &duration : actualDurationsNs) {
         int32_t totalDurationUs = duration.durationNanos / 1000;
 
@@ -48,6 +52,12 @@ void SessionRecords::addReportedDurations(const std::vector<WorkDuration> &actua
                     LOG(ERROR) << "Invalid number of missed cycles: " << mNumOfMissedCycles;
                 }
             }
+            if (mRecords[indexOfRecordToRemove].isFPSJitter) {
+                mNumOfFrameFPSJitters--;
+                if (mNumOfFrameFPSJitters < 0) {
+                    LOG(ERROR) << "Invalid number of FPS jitter frames: " << mNumOfFrameFPSJitters;
+                }
+            }
             mNumOfFrames--;
 
             // If the record to be removed is the max duration, pop it out of the
@@ -57,6 +67,7 @@ void SessionRecords::addReportedDurations(const std::vector<WorkDuration> &actua
             }
         }
 
+        mPreLastRecordIndex = mLatestRecordIndex;
         mLatestRecordIndex = (mLatestRecordIndex + 1) % kMaxNumOfRecords;
 
         // Track start delay
@@ -67,15 +78,51 @@ void SessionRecords::addReportedDurations(const std::vector<WorkDuration> &actua
         }
         mLastStartTimeNs = startTimeNs;
 
+        // Track the number of frame FPS jitters.
+        // A frame is evaluated as FPS jitter if its startInterval is not less
+        // than previous three frames' average startIntervals.
+        bool FPSJitter = false;
+        if (computeGameMetrics) {
+            if (mAddedFramesForFPSCheck < kTotalFramesForFPSCheck) {
+                if (startIntervalUs > 0) {
+                    mLatestStartIntervalSumUs += startIntervalUs;
+                    mAddedFramesForFPSCheck++;
+                }
+            } else {
+                if (startIntervalUs > (1.4 * mLatestStartIntervalSumUs / kTotalFramesForFPSCheck)) {
+                    FPSJitter = true;
+                    mNumOfFrameFPSJitters++;
+                }
+                int32_t oldRecordIndex = mLatestRecordIndex - kTotalFramesForFPSCheck;
+                if (oldRecordIndex < 0) {
+                    oldRecordIndex += kMaxNumOfRecords;
+                }
+                mLatestStartIntervalSumUs +=
+                        startIntervalUs - mRecords[oldRecordIndex].startIntervalUs;
+            }
+        } else {
+            mLatestStartIntervalSumUs = 0;
+            mAddedFramesForFPSCheck = 0;
+        }
+
         bool cycleMissed = totalDurationUs > (targetDurationNs / 1000) * kJankCheckTimeFactor;
-        mRecords[mLatestRecordIndex] = CycleRecord{startIntervalUs, totalDurationUs, cycleMissed};
+        mRecords[mLatestRecordIndex] =
+                CycleRecord{startIntervalUs, totalDurationUs, cycleMissed, FPSJitter};
         mNumOfFrames++;
         if (cycleMissed) {
             mNumOfMissedCycles++;
         }
+        updateFrameBuckets(totalDurationUs, cycleMissed, newFrameMetrics.framesInBuckets);
+        if (computeGameMetrics) {
+            /**
+             * Currently SF frame intervals under "game mode" are used to track the game's FPS.
+             * If the Android platform can pass the timestamps of Game's major layers, that would
+             * be more precise in the long term.
+             */
+            updateGameMetrics(startIntervalUs, newFrameMetrics.gameFrameMetrics);
+        }
 
-        // Pop out the indexes that their related values are not greater than the
-        // latest one.
+        // Pop out the indexes that their related values are not greater than the latest one.
         while (!mRecordsIndQueue.empty() &&
                (mRecords[mRecordsIndQueue.back()].totalDurationUs <= totalDurationUs)) {
             mRecordsIndQueue.pop_back();
@@ -123,6 +170,63 @@ bool SessionRecords::isLowFrameRate(int32_t fpsLowRateThreshold) {
     }
 
     return false;
+}
+
+void SessionRecords::resetRecords() {
+    mAvgDurationUs = 0;
+    mLastStartTimeNs = 0;
+    mLatestRecordIndex = -1;
+    mNumOfMissedCycles = 0;
+    mNumOfFrames = 0;
+    mSumOfDurationsUs = 0;
+    mRecordsIndQueue.clear();
+}
+
+int32_t SessionRecords::getLatestFPS() const {
+    return 1000000 * kTotalFramesForFPSCheck / mLatestStartIntervalSumUs;
+}
+
+int32_t SessionRecords::getNumOfFPSJitters() const {
+    return mNumOfFrameFPSJitters;
+}
+
+void SessionRecords::updateFrameBuckets(int32_t frameDurationUs, bool isJankFrame,
+                                        FrameBuckets &framesInBuckets) {
+    framesInBuckets.totalNumOfFrames++;
+    if (!isJankFrame || frameDurationUs < 17000) {
+        return;
+    }
+
+    if (frameDurationUs < 25000) {
+        framesInBuckets.numOfFrames17to25ms++;
+    } else if (frameDurationUs < 34000) {
+        framesInBuckets.numOfFrames25to34ms++;
+    } else if (frameDurationUs < 67000) {
+        framesInBuckets.numOfFrames34to67ms++;
+    } else if (frameDurationUs < 100000) {
+        framesInBuckets.numOfFrames67to100ms++;
+    } else if (frameDurationUs >= 100000) {
+        framesInBuckets.numOfFramesOver100ms++;
+    }
+}
+
+void SessionRecords::updateGameMetrics(int32_t frameIntervalUs, GameFrameMetrics &gameMetrics) {
+    if (frameIntervalUs <= 0) {
+        return;
+    }
+    auto frameIntervalMs = frameIntervalUs / 1000;
+    gameMetrics.frameTimingMs.push_back(frameIntervalMs);
+
+    if (mNumOfFrames > 2) {
+        gameMetrics.frameTimingDeltaMs.push_back(
+                std::abs(frameIntervalUs - mRecords[mPreLastRecordIndex].startIntervalUs) / 1000);
+    }
+    gameMetrics.totalFrameTimeMs += frameIntervalMs;
+    gameMetrics.numOfFrames++;
+}
+
+bool SessionRecords::areAllRecordsInitialized() const {
+    return mNumOfFrames >= kMaxNumOfRecords;
 }
 
 }  // namespace pixel

@@ -30,11 +30,6 @@ namespace power {
 namespace impl {
 namespace pixel {
 
-template <class T>
-constexpr size_t enum_size() {
-    return static_cast<size_t>(*(ndk::enum_range<T>().end() - 1)) + 1;
-}
-
 // The App Hint Descriptor struct manages information necessary
 // to calculate the next uclamp min value from the PID function
 // and is separate so that it can be used as a pointer for
@@ -60,13 +55,21 @@ struct AppDescriptorTrace {
         trace_is_first_frame = StringPrintf("adpf.%s-%s", idString.c_str(), "is_first_frame");
         // traces for heuristic boost
         trace_avg_duration = StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.avgDuration");
-        trace_heuristic_boost_active =
-                StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.isActive");
+        trace_hboost_janky_level =
+                StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.jankyLevel");
         trace_low_frame_rate =
                 StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.isLowFrameRate");
         trace_max_duration = StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.maxDuration");
         trace_missed_cycles =
                 StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.numOfMissedCycles");
+        trace_uclamp_min_ceiling =
+                StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.uclampMinCeiling");
+        trace_uclamp_min_floor =
+                StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.uclampMinFloor");
+        trace_hboost_pid_pu = StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.uclampPidPu");
+        trace_rampup_boost_active =
+                StringPrintf("adpf.%s-%s", idString.c_str(), "hboost.rampupBoostActive");
+
         for (size_t i = 0; i < trace_modes.size(); ++i) {
             trace_modes[i] = StringPrintf(
                     "adpf.%s-%s_mode", idString.c_str(),
@@ -79,6 +82,8 @@ struct AppDescriptorTrace {
         trace_cpu_duration = StringPrintf("adpf.%s-%s", idString.c_str(), "cpu_duration");
         trace_gpu_duration = StringPrintf("adpf.%s-%s", idString.c_str(), "gpu_duration");
         trace_gpu_capacity = StringPrintf("adpf.%s-%s", idString.c_str(), "gpu_capacity");
+        trace_game_mode_fps = "adpf.sf.gameModeFPS";
+        trace_game_mode_fps_jitters = "adpf.sf.gameModeFPSJitters";
     }
 
     // Trace values
@@ -100,15 +105,22 @@ struct AppDescriptorTrace {
     std::string trace_is_first_frame;
     // traces for heuristic boost
     std::string trace_avg_duration;
-    std::string trace_heuristic_boost_active;
+    std::string trace_hboost_janky_level;
+    std::string trace_hboost_pid_pu;
     std::string trace_low_frame_rate;
     std::string trace_max_duration;
     std::string trace_missed_cycles;
+    std::string trace_rampup_boost_active;
+    std::string trace_uclamp_min_ceiling;
+    std::string trace_uclamp_min_floor;
+
     std::array<std::string, enum_size<aidl::android::hardware::power::SessionMode>()> trace_modes;
     std::array<std::string, static_cast<int32_t>(AdpfVoteType::VOTE_TYPE_SIZE)> trace_votes;
     std::string trace_cpu_duration;
     std::string trace_gpu_duration;
     std::string trace_gpu_capacity;
+    std::string trace_game_mode_fps;
+    std::string trace_game_mode_fps_jitters;
 };
 
 }  // namespace pixel
