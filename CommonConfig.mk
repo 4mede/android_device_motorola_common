@@ -161,35 +161,53 @@ endif
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += $(COMMON_PATH)/sepolicy/private
 
 # VINTF
-DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/manifest.xml
-ifeq ($(TARGET_USES_AUDIO_V7_0),true)
-  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.audio_v7.0.xml
-else
-  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.audio_v6.0.xml
-endif
 ifneq ($(TARGET_USES_FINGERPRINT_V2_1),false)
   DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.biometrics.fingerprint_v2.1.xml
 endif
 ifeq ($(PRODUCT_USES_MTK_HARDWARE),true)
+  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/manifest.xml
   DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/manifest-mtk.xml
-  TARGET_USES_TETHER_V1_1 := true
+  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/tether_v1.1.xml
 else
-  ifeq ($(call is-kernel-greater-than-or-equal-to,5.10),true)
-    DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/manifest-qcom-5.10.xml
-  else
-    DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/manifest-qcom.xml
-  endif
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/manifest.xml
+# Framework compatibility matrix: What the device(=vendor) expects of the framework(=system)
+DEVICE_MATRIX_FILE   += $(COMMON_PATH)/vintf/compatibility_matrix.xml
+
+# Framework compatibility matrix that contains framework HALs as a vendor extension
+DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/framework_compatibility_matrix.xml
+
+# SIM secure element, SIM1/SIM2
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/android.hardware.secure_element.xml
+
+# DSP service
+ifeq ($(TARGET_USES_DSP_SERVICE),true)
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/vendor.qti.hardware.dsp.xml
+endif
+
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/android.hw.qcradio.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.radio.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/android.hardware.radio.config.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.radio.internal.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.radio.uceservice.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.imsservices.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.dataservices.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.qti.qesdhal.xml
+
+ifneq ($(call is-kernel-greater-than-or-equal-to,5.10),true)
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(TARGET_KERNEL_VERSION)/vendor.hw.radio.ims.xml
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/$(SOMC_KERNEL_VERSION)/vendor.hw.qtiradio.xml
+endif
+
   ifeq ($(TARGET_USES_CAMERA_V2_4),true)
     DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.camera.provider_v2.4.xml
   endif
 endif
-ifeq ($(TARGET_USES_TETHER_V1_1),true)
-  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/tether_v1.1.xml
-else
-  DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/tether_v1.0.xml
-endif
 ifeq ($(TARGET_SUPPORTS_NFC),true)
   DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.nfc_v1.2.xml
+endif
+
+ifneq ($(call is-kernel-greater-than-or-equal-to,4.19),true)
+DEVICE_MANIFEST_FILE += $(COMMON_PATH)/vintf/android.hardware.memtrack.xml
 endif
 
 ## Framework compatibility matrix: What the device(=vendor) expects of the framework(=system)
