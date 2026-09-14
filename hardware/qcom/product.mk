@@ -1,5 +1,15 @@
 # QCOM Platform selector
-ifeq ($(TARGET_KERNEL_VERSION), 5.10)
+ifeq ($(TARGET_KERNEL_VERSION), 6.6)
+ifeq ($(TARGET_BOARD_PLATFORM), parrot)
+  qcom_platform := sm8450-6.6
+else
+  qcom_platform := sm8750
+endif
+else ifeq ($(TARGET_KERNEL_VERSION), 6.1)
+  qcom_platform := sm8650
+else ifeq ($(TARGET_KERNEL_VERSION), 5.15)
+  qcom_platform := sm8550
+else ifeq ($(TARGET_KERNEL_VERSION), 5.10)
   qcom_platform := sm8450
 else ifeq ($(TARGET_KERNEL_VERSION), 5.4)
   qcom_platform := sm8350
