@@ -28,5 +28,6 @@ ifeq ($(call device-has-characteristic,ufs),true)
     SOONG_CONFIG_NAMESPACES += ufsbsg
     SOONG_CONFIG_ufsbsg := ufsframework
     SOONG_CONFIG_ufsbsg_ufsframework := bsg
+    TARGET_HAS_GENERIC_KERNEL_HEADERS := true
   endif
 endif
