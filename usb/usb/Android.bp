@@ -14,6 +14,13 @@
 // limitations under the License.
 //
 
+soong_namespace {
+    imports: [
+        "hardware/google/pixel/pixelstats",
+        "hardware/google/pixel/usb",
+    ],
+}
+
 cc_binary {
     name: "android.hardware.usb-service.moto-common",
     relative_install_path: "hw",
